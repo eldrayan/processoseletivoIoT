@@ -19,6 +19,6 @@
 		}
 	},
 
-	"privileged": true,
+	"privileged": true
 	// "remoteUser": "root"
 }

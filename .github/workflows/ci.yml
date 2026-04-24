@@ -21,7 +21,7 @@ jobs:
       run: docker build -t esp32-builder -f Dockerfile .
 
     - name: Run container and generate fs.bin
-      run: |
+      run: |      
         docker run --name esp32-fs-builder esp32-builder /bin/bash
         
         docker cp esp32-fs-builder:/fs.bin .
