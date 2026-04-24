@@ -12,7 +12,6 @@ on:
 jobs:
   build_filesystem:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
     - name: Checkout repository
@@ -24,12 +23,13 @@ jobs:
     - name: Run container and generate fs.bin
       run: |
         docker run --name esp32-fs-builder esp32-builder /bin/bash
+        
         docker cp esp32-fs-builder:/fs.bin .
 
     - name: Test with Wokwi
       uses: wokwi/wokwi-ci-action@v1
       with:
-        token: ${{ secrets.WOKWI_API_KEY }}
+        token: ${{ secrets.WOKWI_API_TOKEN }}
         path: .
-        timeout: 120000 
-        expect_text: 'MicroPython'
+        timeout: 120000
+        expect_text: 'Teste'

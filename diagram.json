@@ -1,15 +1,12 @@
 {
   "version": 1,
-  "author": "Elder Rayan",
+  "author": "Uri Shaked",
   "editor": "wokwi",
-  "parts": [
-    {
-      "type": "wokwi-esp32",
-      "id": "esp",
-      "top": 0,
-      "left": 0,
-      "attrs": { "env": "micropython" }
-    }
+  "parts": [ 
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": { "env": "micropython" } } 
   ],
-  "connections": []
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ]
+  ]
 }
