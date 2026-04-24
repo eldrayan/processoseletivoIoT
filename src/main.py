@@ -2,6 +2,8 @@ import machine
 import time
 import sys
 
+print("Test - Simulação iniciada com sucesso")
+
 # Configuração de Pinos
 LED_BOMBA = machine.Pin(2, machine.Pin.OUT) 
 SENSOR_PIN = 34 

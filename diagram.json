@@ -3,12 +3,13 @@
   "author": "Elder Rayan",
   "editor": "wokwi",
   "parts": [
-    { "type": "wokwi-esp32", "id": "esp", "top": 0, "left": 0, "attrs": { "env": "micropython" } },
-    { "type": "wokwi-potentiometer", "id": "pot1", "top": -100, "left": 100, "attrs": {} }
+    {
+      "type": "board-esp32-devkit-v1",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": { "env": "micropython" }
+    }
   ],
-  "connections": [
-    [ "esp:GND.1", "pot1:GND", "black", [ "v0" ] ],
-    [ "esp:3V3", "pot1:VCC", "red", [ "v0" ] ],
-    [ "esp:34", "pot1:SIG", "green", [ "v0" ] ]
-  ]
+  "connections": []
 }
