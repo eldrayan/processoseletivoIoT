@@ -4,23 +4,20 @@
   "editor": "wokwi",
   "parts": [
     { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": { "env": "micropython" } },
-    { "type": "wokwi-potentiometer", "id": "pot_temp", "top": -100, "left": -100, "attrs": { "label": "Temp CPU" } },
-    { "type": "wokwi-potentiometer", "id": "pot_load", "top": -100, "left": 150, "attrs": { "label": "Carga CPU" } },
-    { "type": "wokwi-led", "id": "led_cool", "top": 100, "left": 50, "attrs": { "color": "blue", "label": "Cooler" } },
-    { "type": "wokwi-led", "id": "led_crit", "top": 100, "left": 150, "attrs": { "color": "red", "label": "ALERTA" } }
+    { "type": "wokwi-potentiometer", "id": "pot_temp", "top": -100, "left": -100, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "pot_load", "top": -100, "left": 150, "attrs": {} },
+    { "type": "wokwi-led", "id": "led_cool", "top": 100, "left": 50, "attrs": { "color": "blue" } },
+    { "type": "wokwi-led", "id": "led_crit", "top": 100, "left": 150, "attrs": { "color": "red" } }
   ],
   "connections": [
     [ "esp:GND.1", "pot_temp:GND", "black", [] ],
     [ "esp:3V3", "pot_temp:VCC", "red", [] ],
     [ "esp:34", "pot_temp:SIG", "green", [] ],
-    
     [ "esp:GND.1", "pot_load:GND", "black", [] ],
     [ "esp:3V3", "pot_load:VCC", "red", [] ],
     [ "esp:35", "pot_load:SIG", "blue", [] ],
-    
     [ "esp:GND.1", "led_cool:C", "black", [] ],
     [ "esp:2", "led_cool:A", "blue", [] ],
-    
     [ "esp:GND.1", "led_crit:C", "black", [] ],
     [ "esp:4", "led_crit:A", "red", [] ]
   ]
