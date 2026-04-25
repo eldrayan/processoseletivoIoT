@@ -175,16 +175,6 @@ Acesse a aba **Actions** do repositório. O check verde confirma que o firmware 
 
 > **Atenção:** o firmware encerra automaticamente após 40 ciclos para que os testes automatizados não fiquem em loop no GitHub Actions. No VS Code, isso fará o simulador reiniciar continuamente.
 
-Para rodar localmente sem interrupções, altere a última linha de `src/main.py`:
-
-```python
-# De:
-monitor.run(cycles=40)
-
-# Para:
-monitor.run(cycles=float('inf'))
-```
-
 ---
 
 ## 6. Resultados e Limitações
