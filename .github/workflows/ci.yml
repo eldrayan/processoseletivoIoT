@@ -22,9 +22,13 @@ jobs:
 
     - name: Run container and generate fs.bin
       run: |      
+        docker rm -f esp32-fs-builder || true
+        
         docker run --name esp32-fs-builder esp32-builder /bin/bash
         
         docker cp esp32-fs-builder:/fs.bin .
+        
+        docker rm -f esp32-fs-builder
 
     - name: Test with Wokwi
       uses: wokwi/wokwi-ci-action@v1
