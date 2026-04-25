@@ -6,26 +6,21 @@
 
 *Feito por:* Elder Rayan Oliveira Silva - Universidade Federal do Cariri (UFCA) | https://github.com/eldrayan
 
+---
+
 ## 1. Visão Geral
 
-O **NexusEdge** é um sistema de monitoramento autônomo projetado para garantir a integridade operacional de nós de borda (Edge Nodes) em arquiteturas descentralizadas. O sistema monitora variáveis críticas de hardware, como temperatura e carga de processamento, aplicando lógica de thermal throttling e alertas preventivos.
+O **NexusEdge** é um sistema de monitoramento autônomo para nós de borda (Edge Nodes). A ideia central é simples: em infraestruturas distribuídas, você não pode depender de um servidor central para saber se um nó está superaquecendo ou sobrecarregado — o próprio nó precisa ser capaz de detectar isso e reagir sozinho.
 
-### Propósito da Solução
-
-Em infraestruturas de computação de borda distribuída, a capacidade de monitorar e responder autonomamente a condições críticas é essencial para manter a disponibilidade do sistema. O NexusEdge implementa um controlador embarcado que:
-
-- **Coleta telemetria em tempo real** de sensores analógicos
-- **Processa dados com normalização e filtragem** para eliminar ruído
-- **Atua imediatamente** via GPIO para ativar sistemas de refrigeração e alarmes
-- **Opera sem intervenção central**, funcionando como um sistema autônomo descentralizado
+O sistema coleta telemetria de sensores analógicos em tempo real, processa os dados localmente e aciona atuadores (refrigeração e alarme) sem nenhuma intervenção externa. É um controlador embarcado autônomo, pensado desde o início para operar em hardware com recursos limitados.
 
 ---
 
 ## 2. Arquitetura da Solução
 
-O NexusEdge segue uma arquitetura em camadas, padrão em sistemas embarcados modernos:
+A solução segue uma arquitetura em camadas, o que facilita bastante tanto a manutenção quanto a adição de novos sensores no futuro:
 
-```bash
+```
 ┌─────────────────────────────────────────┐
 │     Camada de Apresentação              │
 │  (Serial Monitor / Dashboard)           │
@@ -52,31 +47,13 @@ O NexusEdge segue uma arquitetura em camadas, padrão em sistemas embarcados mod
 └─────────────────────────────────────────┘
 ```
 
-### Detalhamento das Camadas
+### O que cada camada faz
 
-#### **Camada de Percepção (Sensoriamento)**
+**Percepção** — Dois canais ADC leem os sensores continuamente com resolução de 12 bits. Aplico média móvel para suavizar outliers antes de passar os dados adiante.
 
-- **Responsabilidade**: Coleta de dados analógicos via ADC (Analog-to-Digital Converter)
-- **Implementação**: Dois potenciômetros simulando sensores térmicos e de carga
-- **Frequência**: Amostragem contínua com resolução de 12 bits
-- **Resiliência**: Tratamento de outliers via média móvel
+**Processamento** — Aqui acontece a normalização (de 0–4095 bruto para 0–100%) e a lógica de decisão. Um ciclo completo roda em ~5ms, sem bloqueios.
 
-#### **Camada de Processamento**
-
-- **Responsabilidade**: Normalização, filtragem e tomada de decisão
-- **Algoritmos**:
-  - Normalização linear de valores brutos (0-4095) para escala percentual (0-100%)
-  - Filtragem exponencial para redução de ruído
-  - Lógica de threshold para decisão de atuação
-- **Criticidade**: Executa em ~5ms por ciclo (não-bloqueante)
-
-#### **Camada de Atuação**
-
-- **Responsabilidade**: Resposta em tempo real aos eventos críticos
-- **Atuadores**:
-  - **Cooler (LED Azul)**: Ativado quando temperatura > 50%
-  - **Alerta Crítico (LED Vermelho)**: Ativado quando temperatura > 80% OU carga > 90%
-- **Latência**: < 10ms entre detecção e ação
+**Atuação** — Resposta direta via GPIO: o LED azul (cooler) liga quando a temperatura passa de 50%, e o LED vermelho (alerta crítico) entra quando a temperatura ultrapassa 80% ou a carga de CPU passa de 90%. A latência entre detecção e ação fica abaixo de 10ms.
 
 ---
 
@@ -85,30 +62,24 @@ O NexusEdge segue uma arquitetura em camadas, padrão em sistemas embarcados mod
 ### Plataforma
 
 | Componente | Especificação | Função |
-| ----------- | --------------- | --------- |
+|---|---|---|
 | **MCU** | ESP32-DevKit-C-V4 | Processador principal (Dual-core 240MHz) |
 | **ADC** | 2x Canais (GPIO 34, 35) | Aquisição de dados dos sensores |
 | **GPIO** | 2x Saídas (GPIO 2, 4) | Acionamento de atuadores |
 | **Memória** | 520 KB RAM / 4 MB Flash | Stack + heap + armazenamento de código |
-| **Clock** | 80/160/240 MHz | Configurável via CPU frequency scaling |
 
-### Sensores
+### Sensores e Atuadores
 
-| Sensor | Pino ESP32 | Simulação | Faixa |
-| -------- | ----------- | ----------- | ------- |
-| Potenciômetro 1 | GPIO 34 | Temperatura do Nó | 0-100% |
-| Potenciômetro 2 | GPIO 35 | Carga de CPU | 0-100% |
-
-### Atuadores
-
-| Atuador | Pino ESP32 | Cor | Função |
-| --------- | ----------- | ----- | -------- |
-| LED Cooler | GPIO 2 | Azul | Sistema de refrigeração |
-| LED Alerta | GPIO 4 | Vermelho | Alarme crítico |
+| Componente | Pino | Função |
+|---|---|---|
+| Potenciômetro 1 | GPIO 34 | Simula temperatura do nó (0–100%) |
+| Potenciômetro 2 | GPIO 35 | Simula carga de CPU (0–100%) |
+| LED Azul | GPIO 2 | Sistema de refrigeração (cooler) |
+| LED Vermelho | GPIO 4 | Alarme crítico |
 
 ### Diagrama de Conexões
 
-```bash
+```
 ESP32 ─────┬─── ADC1 (GPIO 34) ←── Potenciômetro 1 (Temp)
             ├─── ADC2 (GPIO 35) ←── Potenciômetro 2 (Load)
             ├─── GPIO 2 (OUT) ──→ LED Azul (Cooler)
@@ -119,11 +90,9 @@ ESP32 ─────┬─── ADC1 (GPIO 34) ←── Potenciômetro 1 (Tem
 
 ## 4. Decisões Técnicas
 
-### 4.1 Programação Orientada a Objetos (POO)
+### 4.1 Programação Orientada a Objetos
 
-**Problema**: Um script monolítico com temporização bloqueante seria difícil de manter e estender.
-
-**Solução Implementada**:
+A primeira versão era um script monolítico com `time.sleep()` espalhado pelo código. Funcionava, mas qualquer mudança exigia entender o arquivo inteiro. Refatorei para OOP por uma razão prática: quando você tem 10+ sensores com protocolos diferentes (I2C, SPI, analógico), encapsular cada um em sua própria classe é a única forma de manter o código legível.
 
 ```python
 class EdgeNodeMonitor:
@@ -134,7 +103,7 @@ class EdgeNodeMonitor:
         self.led_alert = machine.Pin(4, machine.Pin.OUT)
         self.last_read_time = time.ticks_ms()
         self.read_interval = 1000  # 1 segundo
-    
+
     def read_sensors(self):
         """Lê e normaliza valores dos sensores (0-100%)."""
         temp = (self.adc_temp.read() / 4095.0) * 100.0
@@ -142,31 +111,22 @@ class EdgeNodeMonitor:
         return temp, load
 ```
 
-**Benefícios**:
-
-- Modularidade: Cada sensor/atuador é encapsulado
-- Manutenibilidade: Fácil substituir ou estender componentes
-- Testabilidade: Classes podem ser testadas isoladamente
-- Extensibilidade: Novos sensores I2C/SPI podem ser adicionados sem refatoração
-
-**Justificativa**: Em sistemas de produção (10+ sensores, múltiplos protocolos), OOP reduz a complexidade ciclomática e facilita code reviews. Mais fácil adicionar novos sensores I2C/SPI em uma subclasse dedicada.
+Na prática, isso significa que adicionar um sensor BME680 via I2C amanhã é criar uma subclasse, não reescrever o sistema.
 
 ---
 
 ### 4.2 Temporização Não-Bloqueante
 
-**Problema**: `time.sleep()` bloqueia a CPU inteira, impedindo multitarefa cooperativa.
+`time.sleep()` bloqueia a CPU inteira. Em um sistema com um único sensor isso pode parecer irrelevante, mas assim que você precisa lidar com dois eventos em paralelo (ler sensor enquanto aguarda um alerta, por exemplo), o sleep se torna um problema real.
 
-**Solução Implementada**:
+A solução foi trocar o sleep por verificação de intervalo com `ticks_ms()`:
 
 ```python
 def run(self, cycles=5):
-    """Executa com temporização não-bloqueante."""
     cycle_count = 0
     while cycle_count < cycles:
         current_time = time.ticks_ms()
-        
-        # Sem sleep! Apenas verifica se passou o intervalo
+
         if time.ticks_diff(current_time, self.last_read_time) >= self.read_interval:
             self.last_read_time = current_time
             temp, load = self.read_sensors()
@@ -174,208 +134,102 @@ def run(self, cycles=5):
             cycle_count += 1
 ```
 
-**Benefícios**:
-
-- Concorrência Cooperativa: O processador alterna entre tarefas (não real-time, mas determinístico)
-- Responsividade: Eventos críticos são processados em < 10ms
-- Eficiência Energética: CPU não fica em spin-wait desnecessário
-- Escalabilidade: Sistema pode suportar múltiplos sensores sem degradação
-
-**Justificativa**: Em IoT com bateria, multitarefa cooperativa reduz consumo em 30-50%. Em sistemas de tempo real crítico (automotivo, médico), esse padrão é obrigatório.
+O processador não fica travado esperando — ele verifica se passou o intervalo e segue em frente. Em dispositivos com bateria, esse padrão pode reduzir o consumo em 30–50%. Em sistemas de tempo real crítico é praticamente obrigatório.
 
 ---
 
-### 4.3 Estratégia de CI/CD
+### 4.3 Pipeline de CI/CD
 
-**Objetivo**: Validar código em menos de 10 segundos por commit.
+O objetivo era ter feedback em menos de 10 segundos localmente utilizando o act, sem depender de hardware físico e o Actions do github para validar o comportamento. O pipeline ficou assim:
 
-**Pipeline Implementado**:
-
-```yaml
-GitHub Actions Workflow:
-  1. Linting (pylint)        → 2s
-  2. Validação MicroPython    → 3s
-  3. Simulação no Wokwi       → 4s
-  4. Coverage Report          → 1s
-  ─────────────────────────────
-  Total: ~10 segundos
+```
+1. Linting (pylint)          → ~2s
+2. Validação MicroPython      → ~3s
+3. Simulação no Wokwi CLI     → ~4s
+4. Coverage Report            → ~1s
+─────────────────────────────────
+Total: ~10 segundos
 ```
 
-**Decisões**:
-
-- Feedback Rápido: Desenvolvedores recebem resposta em < 1 minuto
-- CI/CD Leve: Usa Docker apenas para build (economia em CI time)
-- Validação Real: Simula execução no Wokwi com Wokwi CLI (identifica problemas de hardware)
-
-**Impacto Empresarial**:
-
-- Deploy 10x mais rápido que com testes manuais
-- Reduz time-to-market de features críticas
-- Detecta regressões antes da produção
+O ponto mais interessante foi o `expect_text`: em vez de considerar o pipeline bem-sucedido assim que o processo termina, ele aguarda o ESP32 virtual atingir o estado de boot completo (`'Type "help()" for more information.'`) antes de encerrar. Isso elimina falsos-positivos causados por latência de inicialização, um erro sutil que me custou algumas horas de debug.
 
 ---
 
 ## 5. Como Executar e Testar
 
-Este projeto foi projetado para ser validado de forma rápida, oferecendo três níveis de interação, desde a simulação visual até a automação via CI/CD.
+### Simulação Interativa (Wokwi Web) — Recomendado
 
-### 1. Simulação Interativa (Wokwi Web) — **Recomendado**
+A forma mais rápida de ver o sistema funcionando, sem instalar nada:
 
-A maneira mais rápida de validar o funcionamento visual e a lógica dos sensores sem instalar nada:
+**[→ Abrir no Wokwi](https://wokwi.com/projects/462293232079346689)**
 
-* **Acesse o link:** [NexusEdge: Monitoramento Interativo](https://wokwi.com/projects/462293232079346689)
-* **Como testar:**
-    1. Clique no botão de **Play** (ícone verde).
-    2. No painel à direita, mova os **Potenciômetros** com o mouse para simular variações de sensores.
-    3. **LED Azul (Cooler):** Ativa automaticamente quando a Temperatura ultrapassa 50%.
-    4. **LED Vermelho (Alerta):** Ativa se a Temperatura > 80% OU a Carga > 90%.
-    5. Acompanhe os logs de telemetria em tempo real no terminal do simulador.
+1. Clique em **Play**.
+2. Mova os potenciômetros para simular variações de temperatura e carga.
+3. Observe os LEDs respondendo automaticamente e acompanhe os logs no terminal.
 
-### 2. Validação de CI/CD (GitHub Actions)
+### Validação via CI/CD (GitHub Actions)
 
-O projeto utiliza **Integração Contínua** para garantir a integridade do código em cada alteração:
+Acesse a aba **Actions** do repositório. O check verde confirma que o firmware foi compilado e passou na simulação automatizada do Wokwi CLI.
 
-* Acesse a aba **Actions** no topo deste repositório.
+### Execução Local (VS Code)
 
-* Lá você encontrará o histórico de execuções. O status "Success" (check verde) confirma que o firmware foi compilado via Docker e passou nos testes automatizados do Wokwi CLI, validando a lógica de saída do sistema.
+> **Atenção:** o firmware encerra automaticamente após 40 ciclos para que os testes automatizados não fiquem em loop no GitHub Actions. No VS Code, isso fará o simulador reiniciar continuamente.
 
-### 3. Execução Local (VS Code)
+Para rodar localmente sem interrupções, altere a última linha de `src/main.py`:
 
-> **Nota de Compatibilidade:** Esta opção é otimizada para o pipeline de Integração Contínua (CI/CD).
+```python
+# De:
+monitor.run(cycles=40)
 
-Como o firmware está configurado para encerrar automaticamente após 40 ciclos (garantindo que os testes automatizados não fiquem em loop no GitHub Actions), a extensão do Wokwi no VS Code interpretará o encerramento como uma falha e reiniciará o ESP32 continuamente.
-
-**Para testar localmente sem interrupções:**
-Altere a linha final no arquivo `src/main.py`:
-* De: `monitor.run(cycles=40)`
-* Para: `monitor.run(cycles=float('inf'))` ou um `while True`.
-
-Dica: Você também pode simplesmente comentar a linha sys.exit(0) no final do arquivo para manter o console aberto no VS Code.
-
-*Isso desativa o modo de teste automatizado e permite a interação manual infinita com os componentes.*
+# Para:
+monitor.run(cycles=float('inf'))
+```
 
 ---
 
 ## 6. Resultados e Limitações
 
-### Resultados Alcançados
+### O que foi alcançado
 
-| Objetivo | Status | Métrica |
-| ---------- | -------- | ---------- |
-| Monitoramento autônomo | Implementado | Ciclo de 1000ms (configurável) |
-| Atuação rápida | Implementado | Execução < 10ms, latência total ~1000ms (intervalo de ciclo) |
-| Zero dependências externas | Implementado | Apenas MicroPython padrão |
-| Pipeline CI/CD rápido | Implementado | ~10 segundos (Docker + simulação local via act) |
-| Código modular e extensível | Implementado | Arquitetura OOP |
-| Validação de boot automatizada | Implementado | Detecta inicialização do MicroPython via expect_text |
+| Objetivo | Status | Detalhe |
+|---|---|---|
+| Monitoramento autônomo | ✅ | Ciclo de 1000ms configurável |
+| Atuação em tempo real | ✅ | Latência < 10ms por decisão |
+| Zero dependências externas | ✅ | Apenas MicroPython padrão |
+| Pipeline CI/CD | ✅ | ~10 segundos localmente utilizando docker + act|
+| Código modular e extensível | ✅ | Arquitetura OOP |
+| Validação de boot automatizada | ✅ | Via `expect_text` no Wokwi CLI |
 
-### Limitações Conhecidas
+### Limitações honestas
 
-#### **Limitação 1: Simulação com Potenciômetros**
+**Sensores simulados:** os potenciômetros não capturam a dinâmica real de hardware como picos de temperatura, correlação entre carga e calor, variância natural de sensores. Em produção, a troca seria por sensores I2C reais como BME680 (temperatura) e INA260 (potência), o que exigiria poucas mudanças na arquitetura graças ao design em camadas.
 
-- **Atual**: Dois potenciômetros analógicos simulam temperatura e carga
-- **Problema**: Não captura dinâmica real de hardware (picos, variância, correlação)
-- **Solução em Produção**:
+**Leitura de carga de CPU:** o ADC genérico simula carga, mas não reflete a carga real do processador. Em um Linux embarcado, o caminho seria ler diretamente de `/proc/stat`.
 
-  ```python
-  # Usar sensores I2C reais (BME680 para temperatura, INA260 para potência)
-  temp_sensor = BME680(i2c_bus=1)
-  power_sensor = INA260(i2c_address=0x40)
-  ```
+**Sem persistência:** os logs existem apenas em memória. Um reinício perde todo o histórico. Para produção, SQLite local ou um broker MQTT resolveriam isso.
 
-#### **Limitação 2: Leitura Direta de Métricas de CPU**
+**Sem sincronização de tempo:** o clock interno do ESP32 deriva ao longo de dias. `ntptime.settime()` resolveria, mas adiciona dependência de rede um tradeoff consciente para manter o sistema funcionando offline.
 
-- **Atual**: Usa ADC genérico simulando carga
-- **Problema**: Não reflete carga real de CPU do sistema
-- **Solução em Produção** (Linux):
-
-  ```python
-  # Ler diretamente de /proc/stat ou APIs de sistema operacional
-  import os
-  cpu_load = os.popen("grep 'cpu ' /proc/stat").read()
-  ```
-
-#### **Limitação 3: Sem Persistência de Dados**
-
-- **Atual**: Logs apenas em memória
-- **Problema**: Perda de dados ao reiniciar
-- **Solução em Produção**:
-
-  ```python
-  # Usar banco de dados embarcado (SQLite, MQTT Broker local)
-  import sqlite3
-  db = sqlite3.connect('/mnt/data/telemetry.db')
-  ```
-
-#### **Limitação 4: Sem Sincronização de Tempo**
-
-- **Atual**: Usa clock interno do ESP32 (pode desviar)
-- **Problema**: Timestamps imprecisos após dias de execução
-- **Solução em Produção**:
-
-  ```python
-  import ntptime
-  ntptime.settime()  # Sincroniza com NTP
-  ```
-
-### Cenários de Uso
-
-**Adequado para**:
-
-- Prototipagem rápida de conceitos IoT
-- Educação em arquitetura de sistemas embarcados
-- PoC (Proof of Concept) para stakeholders
-- Simulação de comportamentos de nós de borda
-- Validação rápida em CI/CD com Wokwi
-
-**Não adequado para**:
-
-- Produção sem adaptações (sensores I2C reais, persistência, sincronização)
-- Sistemas críticos de segurança (falta de redundância, watchdog timer)
-- Alta frequência de amostragem (> 1000 Hz)
+Esses não são bugs, são tradeoffs documentados de um protótipo. O sistema faz exatamente o que foi projetado para fazer dentro do escopo proposto.
 
 ---
 
-## 7. Evolução de Arquitetura: Mudanças Técnicas Justificadas
+## 7. Evolução Técnica: O que mudou e por quê
 
-Este projeto evoluiu de um protótipo mínimo para uma solução production-ready. As mudanças refletem boas práticas de engenharia:
+Algumas decisões ficaram mais claras durante o desenvolvimento e vale documentar:
 
-### CI/CD (`.github/workflows/ci.yml`)
+**No CI/CD:** o token foi migrado de `WOKWI_CLI_TOKEN` para `WOKWI_API_KEY` (padrão da API v1), o path ajustado de `/` para `.` (evita erros de permissão em containers), e o timeout definido em 120 segundos já é tempo suficiente para embedded sem deixar jobs pendurados indefinidamente.
 
-| Mudança | Antes | Depois | Justificativa |
-|---------|-------|--------|---------------|
-| **Token** | `WOKWI_CLI_TOKEN` | `WOKWI_API_KEY` | Migração para API v1 (padrão de produção) |
-| **Path** | `/` | `.` | Raiz do repositório (evita erros de permissão em containers) |
-| **Timeout** | Indefinido | 120000ms | Determina SLA (2 min é seguro para embedded) |
-| **expect_text** | `'Teste'` | `'Type "help()" for more information.'` | Garante que o hardware virtual atingiu o estado pronto (Ready) antes do encerramento da Action, eliminando falsos-negativos por latência de boot. |
-
-### Diagrama (`diagram.json`)
-
-- **Firmware explícito**: `"env": "micropython"` no ESP32 (sem isso usa Arduino IDE por padrão)
-- **Sensores reais**: 2 potenciômetros (GPIO 34/35) simulam temperatura e carga
-- **Atuadores visuais**: LEDs azul (cooler) e vermelho (alerta) com wiring completo
-- **Eletrônica padrão**: Segue IEC 60617 (facilita validação e revisão)
-
-### DevContainer
-
-Mantido conforme original - já estava otimizado para o caso de uso.
+**No `diagram.json`:** declarar explicitamente `"env": "micropython"` no ESP32 foi necessário porque sem isso o Wokwi assume Arduino IDE por padrão o que se torna um problema silencioso que só aparece na simulação.
 
 ---
 
 ## Conclusão
 
-O NexusEdge demonstra competência em:
-
-1. **Design de Sistemas**: Arquitetura em camadas clara e escalável
-2. **Embedded Systems**: Temporização não-bloqueante, hardware I/O eficiente
-3. **Engenharia de Software**: OOP, CI/CD, automação, documentação
-4. **Pragmatismo**: Reconhecer tradeoffs e limitações de forma honesta
-5. **DevOps para IoT**: Pipeline automatizado
-
-A solução é **production-ready para prototipagem** e fornece uma base sólida para escalar para sensores I2C reais, persistência de dados e sincronização de tempo com mínimas adaptações.
+O NexusEdge começou como um script simples e evoluiu para um sistema com arquitetura definida, pipeline automatizado e documentação de tradeoffs. O maior aprendizado foi perceber que em sistemas embarcados as decisões de software (como não usar `sleep()`) têm impacto direto no hardware, consumo, responsividade, confiabilidade. Pensar nisso desde o início, e não como ajuste posterior, faz toda a diferença.
 
 ---
 
 ## Licença
 
-MIT License - Veja LICENSE para detalhes.
+MIT License — veja [LICENSE](LICENSE) para detalhes.
