@@ -8,7 +8,7 @@
 
 ---
 
-![Circuito simulado no Wokwi](img/Screenshot%20From%202026-04-26%2017-55-25.png)
+![Circuito simulado no Wokwi](img/Screenshot%20From%202026-04-26%2020-13-53.png)
 
 **Figura:** Simulação do Edge Node Monitor no Wokwi com sensor NTC (GPIO 34), potenciômetro de carga (GPIO 35), LEDs de controle (GPIO 2 e 4), buzzer sonoro (GPIO 13) e comunicação serial com o monitor integrado.
 
