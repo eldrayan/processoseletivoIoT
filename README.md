@@ -8,6 +8,12 @@
 
 ---
 
+![Circuito simulado no Wokwi](img/Screenshot%20From%202026-04-26%2017-55-25.png)
+
+**Figura:** Simulação do Edge Node Monitor no Wokwi com sensor NTC (GPIO 34), potenciômetro de carga (GPIO 35), LEDs de controle (GPIO 2 e 4) e comunicação serial com o monitor integrado.
+
+---
+
 ## 1. Visão Geral
 
 O **NexusEdge** é um sistema de monitoramento autônomo para nós de borda (Edge Nodes). A ideia central é simples: em infraestruturas distribuídas, você não pode depender de um servidor central para saber se um nó está superaquecendo ou sobrecarregado — o próprio nó precisa ser capaz de detectar isso e reagir sozinho.
@@ -49,11 +55,11 @@ A solução segue uma arquitetura em camadas, o que facilita bastante tanto a ma
 
 ### O que cada camada faz
 
-**Percepção** — Dois canais ADC leem os sensores continuamente com resolução de 12 bits. Aplico média móvel para suavizar outliers antes de passar os dados adiante.
+**Percepção** — Um sensor NTC (termistor) lê temperatura no GPIO 34 com resolução de 12 bits. Um potenciômetro lê carga simulada no GPIO 35. Ambos os canais são lidos continuamente sem filtragem (para manter a lógica simples em hardware limitado).
 
 **Processamento** — Aqui acontece a normalização (de 0–4095 bruto para 0–100%) e a lógica de decisão. Um ciclo completo roda em ~5ms, sem bloqueios.
 
-**Atuação** — Resposta direta via GPIO: o LED azul (cooler) liga quando a temperatura passa de 50%, e o LED vermelho (alerta crítico) entra quando a temperatura ultrapassa 80% ou a carga de CPU passa de 90%. A latência entre detecção e ação fica abaixo de 10ms.
+**Atuação** — Resposta direta via GPIO: o LED azul (cooler) liga quando a temperatura passa de 50°C, e o LED vermelho (alerta crítico) entra quando a temperatura ultrapassa 75°C ou a carga de CPU passa de 90%. A latência entre detecção e ação fica abaixo de 10ms.
 
 ---
 
@@ -72,16 +78,16 @@ A solução segue uma arquitetura em camadas, o que facilita bastante tanto a ma
 
 | Componente | Pino | Função |
 |---|---|---|
-| Potenciômetro 1 | GPIO 34 | Simula temperatura do nó (0–100%) |
-| Potenciômetro 2 | GPIO 35 | Simula carga de CPU (0–100%) |
+| Sensor NTC | GPIO 34 | Lê temperatura real via termistor (fórmula Steinhart-Hart) |
+| Potenciômetro | GPIO 35 | Simula carga de CPU (0–100%) |
 | LED Azul | GPIO 2 | Sistema de refrigeração (cooler) |
 | LED Vermelho | GPIO 4 | Alarme crítico |
 
 ### Diagrama de Conexões
 
 ```
-ESP32 ─────┬─── ADC1 (GPIO 34) ←── Potenciômetro 1 (Temp)
-            ├─── ADC2 (GPIO 35) ←── Potenciômetro 2 (Load)
+ESP32 ─────┬─── ADC1 (GPIO 34) ←── Sensor NTC (Temperatura)
+            ├─── ADC2 (GPIO 35) ←── Potenciômetro (Carga)
             ├─── GPIO 2 (OUT) ──→ LED Azul (Cooler)
             └─── GPIO 4 (OUT) ──→ LED Vermelho (Alerta)
 ```
@@ -97,17 +103,19 @@ A primeira versão era um script monolítico com `time.sleep()` espalhado pelo c
 ```python
 class EdgeNodeMonitor:
     def __init__(self):
-        self.adc_temp = machine.ADC(machine.Pin(34))
-        self.adc_load = machine.ADC(machine.Pin(35))
-        self.led_cooler = machine.Pin(2, machine.Pin.OUT)
-        self.led_alert = machine.Pin(4, machine.Pin.OUT)
+        self.sensor_temp = SensorNTC(PIN_SENSOR_TEMP)      # Classe dedicada
+        self.sensor_load = SensorLoad(PIN_SENSOR_LOAD)      # Classe dedicada
+        self.led_cooler = machine.Pin(PIN_LED_COOLER, machine.Pin.OUT)
+        self.led_alert = machine.Pin(PIN_LED_ALERT, machine.Pin.OUT)
         self.last_read_time = time.ticks_ms()
-        self.read_interval = 1000  # 1 segundo
+        self.read_interval = READ_INTERVAL_MS
 
     def read_sensors(self):
-        """Lê e normaliza valores dos sensores (0-100%)."""
-        temp = (self.adc_temp.read() / 4095.0) * 100.0
-        load = (self.adc_load.read() / 4095.0) * 100.0
+        """Lê sensores usando classes especializadas."""
+        # Sensor NTC com fórmula Steinhart-Hart integrada
+        temp = self.sensor_temp.ler_temperatura_celsius()
+        # Potenciômetro com normalização (0-100%)
+        load = self.sensor_load.ler_carga_percentual()
         return temp, load
 ```
 
@@ -157,7 +165,7 @@ O ponto mais interessante foi o `expect_text`: em vez de considerar o pipeline b
 
 ## 5. Como Executar e Testar
 
-### Simulação Interativa (Wokwi Web) — Recomendado
+### Simulação Interativa (Wokwi Web)
 
 A forma mais rápida de ver o sistema funcionando, sem instalar nada:
 
@@ -169,11 +177,11 @@ A forma mais rápida de ver o sistema funcionando, sem instalar nada:
 
 ### Validação via CI/CD (GitHub Actions)
 
-Acesse a aba **Actions** do repositório. O check verde confirma que o firmware foi compilado e passou na simulação automatizada do Wokwi CLI.
+Acesse a aba **Actions** do repositório. O check verde ✅ confirma que o firmware foi compilado e passou na simulação automatizada do Wokwi CLI em ambiente de produção.
 
-### Execução Local (VS Code)
+### Nota técnica: Execução no VS Code
 
-> **Atenção:** o firmware encerra automaticamente após 40 ciclos para que os testes automatizados não fiquem em loop no GitHub Actions. No VS Code, isso fará o simulador reiniciar continuamente.
+O firmware é projetado para rodar com ciclo finito (controlado via `monitor.run(cycles=N)`). Se executado diretamente no VS Code com loop infinito (`while True: monitor.run(cycles=1)`), o simulador reiniciará continuamente devido à natureza da simulação local. **Isso é comportamento esperado**, não um bug. Para debug iterativo, use o Wokwi Web (que oferece console interativo) ou ajuste `cycles` no código-fonte.
 
 ---
 

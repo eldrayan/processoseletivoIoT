@@ -1,4 +1,3 @@
 [wokwi]
 version = 1
 firmware = "src/main.py"
-terminal = "none"
