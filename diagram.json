@@ -28,7 +28,14 @@
       "rotate": 180,
       "attrs": { "color": "red" }
     },
-    { "type": "wokwi-ntc-temperature-sensor", "id": "ntc1", "top": -103, "left": 9, "attrs": {} }
+    { "type": "wokwi-ntc-temperature-sensor", "id": "ntc1", "top": -103, "left": 9, "attrs": {} },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": -55.2,
+      "left": 299.4,
+      "attrs": { "volume": "1.0" }
+    }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
@@ -44,7 +51,9 @@
     [ "led2:C", "bb1:tn.3", "black", [ "v-134.4", "h76.4" ] ],
     [ "ntc1:VCC", "bb1:tp.7", "red", [ "h0" ] ],
     [ "ntc1:GND", "bb1:tn.6", "black", [ "h9.6", "v153.6", "h-9.6", "v19.3" ] ],
-    [ "ntc1:OUT", "esp:34", "green", [ "h0", "v47.9", "h-297.6", "v115.2" ] ]
+    [ "ntc1:OUT", "esp:34", "green", [ "h0", "v47.9", "h-297.6", "v115.2" ] ],
+    [ "bz1:1", "bb1:tn.21", "black", [ "v48", "h-9.6", "v19.3" ] ],
+    [ "bz1:2", "esp:13", "#8f4814", [ "v9.6", "h-355.6", "v-28.8", "h-115.2", "v182.4" ] ]
   ],
   "dependencies": {}
 }

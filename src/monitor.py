@@ -35,6 +35,8 @@ class EdgeNodeMonitor:
         self.last_read_time = time.ticks_ms()
         self.read_interval = READ_INTERVAL_MS
 
+        self.buzzer = machine.Pin(13, machine.Pin.OUT)
+
     def read_sensors(self):
         """
         Lê os dois sensores e retorna os valores legáveis.
@@ -49,26 +51,18 @@ class EdgeNodeMonitor:
 
     def evaluate_logic(self, temp, load):
         """
-        Analisa temperatura e carga, depois aciona os LEDs.
-        
-        A lógica é simples:
-        - Se tá quente (>50°C), liga o cooler
-        - Se tá MUITO quente (>75°C) OU sobrecarregado (>90%), alerta crítico
-        
-        Args:
-            temp: Temperatura atual em °C
-            load: Carga do sistema em %
-            
-        Returns:
-            tuple: (cooler tá ligado?, alerta tá ligado?)
+        Analisa temperatura e carga, depois aciona os LEDs e o Buzzer.
         """
         # Se passou de 50°C, liga o ventilador
         cooler_active = temp > TEMP_COOLER_THRESHOLD
         self.led_cooler.value(1 if cooler_active else 0)
         
-        # Se tá muito quente OU muito carregado, aciona alerta
+        # Se tá muito quente OU muito carregado, aciona alerta (LED + Buzzer)
         alert_active = temp > TEMP_ALERT_THRESHOLD or load > LOAD_ALERT_THRESHOLD
+        
+        # Atuadores de Alerta
         self.led_alert.value(1 if alert_active else 0)
+        self.buzzer.value(1 if alert_active else 0)  
         
         return cooler_active, alert_active
 
