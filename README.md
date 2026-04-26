@@ -10,7 +10,7 @@
 
 ![Circuito simulado no Wokwi](img/Screenshot%20From%202026-04-26%2017-55-25.png)
 
-**Figura:** Simulação do Edge Node Monitor no Wokwi com sensor NTC (GPIO 34), potenciômetro de carga (GPIO 35), LEDs de controle (GPIO 2 e 4) e comunicação serial com o monitor integrado.
+**Figura:** Simulação do Edge Node Monitor no Wokwi com sensor NTC (GPIO 34), potenciômetro de carga (GPIO 35), LEDs de controle (GPIO 2 e 4), buzzer sonoro (GPIO 13) e comunicação serial com o monitor integrado.
 
 ---
 
@@ -18,7 +18,7 @@
 
 O **NexusEdge** é um sistema de monitoramento autônomo para nós de borda (Edge Nodes). A ideia central é simples: em infraestruturas distribuídas, você não pode depender de um servidor central para saber se um nó está superaquecendo ou sobrecarregado — o próprio nó precisa ser capaz de detectar isso e reagir sozinho.
 
-O sistema coleta telemetria de sensores analógicos em tempo real, processa os dados localmente e aciona atuadores (refrigeração e alarme) sem nenhuma intervenção externa. É um controlador embarcado autônomo, pensado desde o início para operar em hardware com recursos limitados.
+O sistema coleta telemetria de sensores analógicos em tempo real, processa os dados localmente e aciona atuadores (refrigeração e alarme visual/sonoro) sem nenhuma intervenção externa. É um controlador embarcado autônomo, pensado desde o início para operar em hardware com recursos limitados.
 
 ---
 
@@ -36,6 +36,7 @@ A solução segue uma arquitetura em camadas, o que facilita bastante tanto a ma
 │   Camada de Atuação (Controle)           │
 │  • Cooler (LED Azul - GPIO 2)            │
 │  • Alerta Crítico (LED Vermelho - GPIO 4)│
+│  • Alarme Sonoro (Buzzer - GPIO 13)      │
 └──────────────────────────────────────────┘
               ↕
 ┌─────────────────────────────────────────┐
@@ -59,7 +60,7 @@ A solução segue uma arquitetura em camadas, o que facilita bastante tanto a ma
 
 **Processamento** — Aqui acontece a normalização (de 0–4095 bruto para 0–100%) e a lógica de decisão. Um ciclo completo roda em ~5ms, sem bloqueios.
 
-**Atuação** — Resposta direta via GPIO: o LED azul (cooler) liga quando a temperatura passa de 50°C, e o LED vermelho (alerta crítico) entra quando a temperatura ultrapassa 75°C ou a carga de CPU passa de 90%. A latência entre detecção e ação fica abaixo de 10ms.
+**Atuação** — Resposta direta via GPIO: o LED azul (cooler) liga quando a temperatura passa de 50°C, e o LED vermelho (alerta crítico) + buzzer sonoro entram em ação quando a temperatura ultrapassa 75°C ou a carga de CPU passa de 90%. A latência entre detecção e ação fica abaixo de 10ms.
 
 ---
 
@@ -81,7 +82,8 @@ A solução segue uma arquitetura em camadas, o que facilita bastante tanto a ma
 | Sensor NTC | GPIO 34 | Lê temperatura real via termistor (fórmula Steinhart-Hart) |
 | Potenciômetro | GPIO 35 | Simula carga de CPU (0–100%) |
 | LED Azul | GPIO 2 | Sistema de refrigeração (cooler) |
-| LED Vermelho | GPIO 4 | Alarme crítico |
+| LED Vermelho | GPIO 4 | Alarme crítico (visual) |
+| Buzzer | GPIO 13 | Alarme crítico (sonoro) |
 
 ### Diagrama de Conexões
 
@@ -89,7 +91,8 @@ A solução segue uma arquitetura em camadas, o que facilita bastante tanto a ma
 ESP32 ─────┬─── ADC1 (GPIO 34) ←── Sensor NTC (Temperatura)
             ├─── ADC2 (GPIO 35) ←── Potenciômetro (Carga)
             ├─── GPIO 2 (OUT) ──→ LED Azul (Cooler)
-            └─── GPIO 4 (OUT) ──→ LED Vermelho (Alerta)
+            ├─── GPIO 4 (OUT) ──→ LED Vermelho (Alerta Visual)
+            └─── GPIO 13 (OUT) ──→ Buzzer (Alerta Sonoro)
 ```
 
 ---
@@ -107,6 +110,7 @@ class EdgeNodeMonitor:
         self.sensor_load = SensorLoad(PIN_SENSOR_LOAD)      # Classe dedicada
         self.led_cooler = machine.Pin(PIN_LED_COOLER, machine.Pin.OUT)
         self.led_alert = machine.Pin(PIN_LED_ALERT, machine.Pin.OUT)
+        self.buzzer = machine.Pin(13, machine.Pin.OUT)     # Alarme sonoro
         self.last_read_time = time.ticks_ms()
         self.read_interval = READ_INTERVAL_MS
 
