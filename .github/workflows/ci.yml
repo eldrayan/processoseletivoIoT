@@ -35,5 +35,4 @@ jobs:
       with:
         token: ${{ secrets.WOKWI_API_KEY }}
         path: .
-        timeout: 120000
         expect_text: 'Type "help()" for more information.'

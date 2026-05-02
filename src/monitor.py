@@ -3,6 +3,7 @@ O coração do sistema: monitora tudo que acontece no nó IoT.
 Lê sensores, toma decisões, aciona LEDs. 
 """
 
+import random
 import machine
 import time
 from config import (
@@ -38,16 +39,27 @@ class EdgeNodeMonitor:
         self.buzzer = machine.Pin(13, machine.Pin.OUT)
 
     def read_sensors(self):
-        """
-        Lê os dois sensores e retorna os valores legáveis.
+        """Lê os sensores, aplica ruído realístico e executa Thermal Throttling."""
         
-        Returns:
-            tuple: (temperatura em °C, carga em %)
-        """
-        temp = self.sensor_temp.ler_temperatura_celsius()
-        load = self.sensor_load.ler_carga_percentual()
+        # Leitura fisica
+        base_temp = self.sensor_temp.ler_temperatura_celsius()  
+        base_load = self.sensor_load.ler_carga_percentual()
         
-        return temp, load
+        # Carga dinâmica
+        # Adiciona um ruído entre -5.0% e +5.0% na carga lida pelo potenciômetro
+        ruido = random.uniform(-5.0, 5.0)
+        carga_dinamica = base_load + ruido
+        
+        # Garante que a carga não passe de 100% nem caia abaixo de 0%
+        carga_dinamica = max(0.0, min(100.0, carga_dinamica))
+        
+        # Thermal Throttling)
+        # Se o NTC registrar que passou de 80°C, o sistema de segurança entra em ação
+        if base_temp >= 70.0:
+            # O sistema é forçado a derrubar a carga máxima para 40%, não importa o potenciômetro
+            carga_dinamica = min(carga_dinamica, 40.0) 
+            
+        return base_temp, carga_dinamica
 
     def evaluate_logic(self, temp, load):
         """

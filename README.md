@@ -8,7 +8,7 @@
 
 ---
 
-![Circuito simulado no Wokwi](img/Screenshot%20From%202026-04-26%2020-13-53.png)
+![Circuito simulado no Wokwi](img/Screenshot%20From%202026-05-02%2011-54-07.png)
 
 **Figura:** Simulação do Edge Node Monitor no Wokwi com sensor NTC (GPIO 34), potenciômetro de carga (GPIO 35), LEDs de controle (GPIO 2 e 4), buzzer sonoro (GPIO 13) e comunicação serial com o monitor integrado.
 
@@ -60,7 +60,7 @@ A solução segue uma arquitetura em camadas, o que facilita bastante tanto a ma
 
 **Processamento** — Aqui acontece a normalização (de 0–4095 bruto para 0–100%) e a lógica de decisão. Um ciclo completo roda em ~5ms, sem bloqueios.
 
-**Atuação** — Resposta direta via GPIO: o LED azul (cooler) liga quando a temperatura passa de 50°C, e o LED vermelho (alerta crítico) + buzzer sonoro entram em ação quando a temperatura ultrapassa 75°C ou a carga de CPU passa de 90%. A latência entre detecção e ação fica abaixo de 10ms.
+**Atuação** — Resposta direta via GPIO com proteção de hardware: os LEDs estão equipados com resistores de proteção para funcionar em hardware físico real, evitando correntes excessivas no ESP32. O LED azul (cooler) liga quando a temperatura passa de 50°C, e o LED vermelho (alerta crítico) + buzzer sonoro entram em ação quando a temperatura ultrapassa 75°C ou a carga de CPU passa de 90%. A latência entre detecção e ação fica abaixo de 10ms.
 
 ---
 
@@ -81,8 +81,8 @@ A solução segue uma arquitetura em camadas, o que facilita bastante tanto a ma
 |---|---|---|
 | Sensor NTC | GPIO 34 | Lê temperatura real via termistor (fórmula Steinhart-Hart) |
 | Potenciômetro | GPIO 35 | Simula carga de CPU (0–100%) |
-| LED Azul | GPIO 2 | Sistema de refrigeração (cooler) |
-| LED Vermelho | GPIO 4 | Alarme crítico (visual) |
+| LED Azul (com resistor) | GPIO 2 | Sistema de refrigeração (cooler) — Resistor de proteção para hardware real |
+| LED Vermelho (com resistor) | GPIO 4 | Alarme crítico (visual) — Resistor de proteção para hardware real |
 | Buzzer | GPIO 13 | Alarme crítico (sonoro) |
 
 ### Diagrama de Conexões
@@ -127,7 +127,44 @@ Na prática, isso significa que adicionar um sensor BME680 via I2C amanhã é cr
 
 ---
 
-### 4.2 Temporização Não-Bloqueante
+### 4.2a Thermal Throttling Automático: Variação Dinâmica de Carga
+
+Um dos principais mecanismos de proteção do sistema é o **thermal throttling automático** implementado no método `read_sensors()` da classe `EdgeNodeMonitor`. Esse recurso permite que o sistema reduza a carga máxima permitida conforme a temperatura aumenta, sem necessidade de intervenção externa.
+
+**Como funciona:**
+
+O firmware realiza leitura contínua da temperatura do NTC. Quando a temperatura base ultrapassa **70°C**, o sistema ativa automaticamente o throttling:
+
+```python
+def read_sensors(self):
+    """Lê os sensores, aplica ruído realístico e executa Thermal Throttling."""
+    
+    base_temp = self.sensor_temp.ler_temperatura_celsius()  
+    base_load = self.sensor_load.ler_carga_percentual()
+    
+    # Adiciona ruído realístico (-5% a +5%)
+    ruido = random.uniform(-5.0, 5.0)
+    carga_dinamica = base_load + ruido
+    carga_dinamica = max(0.0, min(100.0, carga_dinamica))  # Limita 0-100%
+    
+    # Thermal Throttling: se T ≥ 70°C, força carga ≤ 40%
+    if base_temp >= 70.0:
+        carga_dinamica = min(carga_dinamica, 40.0) 
+        
+    return base_temp, carga_dinamica
+```
+
+**Efeito prático:**
+
+- **Abaixo de 70°C:** A carga varia livremente de acordo com o potenciômetro (0–100%)
+- **Acima de 70°C:** A carga é **automaticamente limitada a no máximo 40%**, reduzindo a dissipação de calor interno
+- **Combinado com cooler:** Quando a temp passa de 50°C, o LED azul liga; quando passa de 70°C, além de reduzir a carga máxima, o sistema também atua o cooler + continua monitorando para disparar o alerta crítico (75°C ou 90% de carga)
+
+**Vantagem:** O sistema protege a si mesmo sem depender de feedback externo. Um microcontrolador sobrecarregado não consegue se recuperar por conta própria, esse mecanismo impede que chegue a esse ponto.
+
+---
+
+### 4.3 Temporização Não-Bloqueante
 
 `time.sleep()` bloqueia a CPU inteira. Em um sistema com um único sensor isso pode parecer irrelevante, mas assim que você precisa lidar com dois eventos em paralelo (ler sensor enquanto aguarda um alerta, por exemplo), o sleep se torna um problema real.
 
@@ -150,7 +187,7 @@ O processador não fica travado esperando — ele verifica se passou o intervalo
 
 ---
 
-### 4.3 Pipeline de CI/CD
+### 4.4 Pipeline de CI/CD
 
 O objetivo era ter feedback em menos de 10 segundos localmente utilizando o act, sem depender de hardware físico e o Actions do github para validar o comportamento. O pipeline ficou assim:
 
@@ -197,6 +234,8 @@ O firmware é projetado para rodar com ciclo finito (controlado via `monitor.run
 |---|---|---|
 | Monitoramento autônomo | ✅ | Ciclo de 1000ms configurável |
 | Atuação em tempo real | ✅ | Latência < 10ms por decisão |
+| Thermal Throttling automático | ✅ | Reduz carga a 40% acima de 70°C |
+| Proteção de hardware (resistores) | ✅ | LEDs com resistores para operação real |
 | Zero dependências externas | ✅ | Apenas MicroPython padrão |
 | Pipeline CI/CD | ✅ | ~10 segundos localmente utilizando docker + act|
 | Código modular e extensível | ✅ | Arquitetura OOP |
